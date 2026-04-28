@@ -45,6 +45,13 @@ public sealed class SceneNode
     /// <summary>Whether this node is enabled (visibility / activation hint for the spawn step).</summary>
     public bool Enabled { get; set; } = true;
 
+    /// <summary>
+    /// Authoring-time visibility classification (USD <c>UsdGeomImageable.purpose</c>).
+    /// Spawn systems filter against <see cref="SceneImportSettings.IncludePurposes"/>
+    /// (or their own <see cref="ScenePurposeMask"/>) before materializing the node.
+    /// </summary>
+    public ScenePurpose Purpose { get; set; } = ScenePurpose.Default;
+
     /// <summary>Backend-attached payloads (mesh, material, light, camera, custom...). Spawn systems pattern-match on type.</summary>
     public List<object> Components { get; } = new();
 

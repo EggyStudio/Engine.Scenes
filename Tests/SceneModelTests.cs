@@ -95,6 +95,62 @@ public class SceneModelTests
         app.World.ContainsResource<SceneReaderRegistry>().Should().BeTrue();
     }
 
+    [Fact]
+    public void SceneImportSettings_Default_Matches_Runtime_Spawn_Profile()
+    {
+        var s = SceneImportSettings.Default;
+
+        s.TargetCoordinateSystem.Should().Be(SceneCoordinateSystem.YUp);
+        s.TargetMetersPerUnit.Should().Be(1.0);
+        s.FlattenComposition.Should().BeTrue();
+        s.IncludePurposes.Should().Be(ScenePurposeMask.Runtime);
+        s.IncludePurposes.HasFlag(ScenePurposeMask.Default).Should().BeTrue();
+        s.IncludePurposes.HasFlag(ScenePurposeMask.Render).Should().BeTrue();
+        s.IncludePurposes.HasFlag(ScenePurposeMask.Proxy).Should().BeFalse();
+        s.IncludePurposes.HasFlag(ScenePurposeMask.Guide).Should().BeFalse();
+        s.TimeCode.Should().BeNull();
+        s.MaterialResolution.Should().Be(MaterialNetworkResolution.UsdPreviewSurface);
+        s.LoadPayloads.Should().Be(LoadPayloads.All);
+        s.AssetSearchPath.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ScenePurposeMask_Editor_Adds_Proxy_To_Runtime()
+    {
+        ScenePurposeMask.Editor.Should().Be(
+            ScenePurposeMask.Default | ScenePurposeMask.Render | ScenePurposeMask.Proxy);
+        ScenePurposeMask.All.Should().Be(
+            ScenePurposeMask.Default | ScenePurposeMask.Render |
+            ScenePurposeMask.Proxy | ScenePurposeMask.Guide);
+    }
+
+    [Fact]
+    public void LoadPayloads_All_Includes_Every_Defined_Kind()
+    {
+        var all = LoadPayloads.Meshes | LoadPayloads.Materials | LoadPayloads.Cameras |
+                  LoadPayloads.Lights | LoadPayloads.Instancing;
+        LoadPayloads.All.Should().Be(all);
+    }
+
+    [Fact]
+    public void SceneNode_Default_Purpose_Is_Default_And_Is_Mutable()
+    {
+        var node = new SceneNode();
+
+        node.Purpose.Should().Be(ScenePurpose.Default);
+        node.Purpose = ScenePurpose.Guide;
+        node.Purpose.Should().Be(ScenePurpose.Guide);
+    }
+
+    [Fact]
+    public void SceneInstance_Carries_AssetId_And_SourcePath()
+    {
+        var marker = new SceneInstance { SceneAssetId = 42, SourcePath = "/World/Hero" };
+
+        marker.SceneAssetId.Should().Be(42UL);
+        marker.SourcePath.Should().Be("/World/Hero");
+    }
+
     private sealed record TagComponent(string Value);
     private sealed record OtherComponent;
 

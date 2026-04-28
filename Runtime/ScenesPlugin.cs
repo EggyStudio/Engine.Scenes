@@ -46,6 +46,20 @@ public sealed class ScenesPlugin : IPlugin
         // (e.g. UsdScenesPlugin) to opt-in their format support.
         app.World.InsertResource(new SceneReaderRegistry());
 
+        // Tracking table for spawned scenes - read by SceneHotReloadSystem to identify
+        // which entities to despawn when a SceneAsset hot-reloads.
+        app.World.InsertResource(new SpawnedScenes());
+
+        // Auto-spawn driver: turns SpawnSceneRequest components into ECS entities once
+        // the underlying SceneAsset finishes loading. Runs in PreUpdate so spawned
+        // entities are visible to gameplay systems in the same frame.
+        app.AddSystem(Stage.PreUpdate, new SystemDescriptor(SceneSpawnSystem.Run, "SceneSpawnSystem"));
+
+        // Hot-reload driver: watches AssetEvent<SceneAsset>.Modified and re-spawns the
+        // tracked entity set in place. Same stage as the spawn driver - asset events
+        // persist until Stage.Last so ordering is forgiving.
+        app.AddSystem(Stage.PreUpdate, new SystemDescriptor(SceneHotReloadSystem.Run, "SceneHotReloadSystem"));
+
         Logger.Info("ScenesPlugin: Scene model ready. Add a backend plugin (e.g. UsdScenesPlugin) to enable file loading.");
     }
 }

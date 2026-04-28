@@ -16,13 +16,22 @@ namespace Engine;
 /// matches how the <see cref="AssetServer"/> publishes results from background loaders.
 /// </para>
 /// <para>
-/// All transforms are normalized at load time to the engine's canonical convention:
+/// <b>Coordinate / unit policy:</b> readers <i>preserve</i> the source basis and units rather
+/// than per-vertex normalization. <see cref="SourceCoordinateSystem"/> and
+/// <see cref="SourceMetersPerUnit"/> are therefore <b>load-bearing</b>, not just diagnostic:
+/// downstream spawn systems (<c>SceneSpawnSystem</c>) apply a single root-level basis-change
+/// matrix (axis swap + uniform scale) derived from these fields. Two reasons to do it this way:
 /// <list type="bullet">
-///   <item><description><b>Coordinate system:</b> right-handed, <b>Y-up</b>.</description></item>
-///   <item><description><b>Units:</b> meters (1 engine unit = 1 meter).</description></item>
+///   <item><description>
+///     The reader stays symmetric with the writer - a round-trip
+///     <c>read → write</c> is byte-stable, since vertex data was never rotated or rescaled.
+///   </description></item>
+///   <item><description>
+///     Per-vertex axis swaps lose precision on large stages and would have to be undone
+///     by the writer; a single matrix at the spawn root avoids both costs.
+///   </description></item>
 /// </list>
-/// Source-format-specific axes (Z-up USD stages, etc.) and units (<c>metersPerUnit</c>) are
-/// converted by the reader; downstream code never has to think about them.
+/// This matches Omniverse's convention of treating USD as the source of truth.
 /// </para>
 /// </remarks>
 /// <seealso cref="SceneNode"/>
@@ -37,12 +46,16 @@ public sealed class Scene
     public List<SceneNode> Roots { get; } = new();
 
     /// <summary>
-    /// Coordinate system the scene was authored in, for diagnostics / round-tripping.
-    /// All transforms in <see cref="Roots"/> are already normalized to engine canonical (Y-up, meters).
+    /// Coordinate system the scene was authored in. <b>Load-bearing</b>: spawn systems
+    /// derive the root-level basis-change matrix from this value (cf. type-level remarks).
     /// </summary>
     public SceneCoordinateSystem SourceCoordinateSystem { get; init; } = SceneCoordinateSystem.YUp;
 
-    /// <summary>Source <c>metersPerUnit</c> (or <c>1.0</c> if unknown). Diagnostic only.</summary>
+    /// <summary>
+    /// Source <c>metersPerUnit</c> as authored on the stage (e.g. <c>0.01</c> for centimeters,
+    /// <c>1.0</c> for meters). <b>Load-bearing</b>: spawn systems multiply this into the
+    /// root-level scale so vertex data stays in source units while the world ends up in meters.
+    /// </summary>
     public double SourceMetersPerUnit { get; init; } = 1.0;
 
     /// <summary>Depth-first enumeration of every node in the scene.</summary>
