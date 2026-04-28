@@ -1,46 +1,38 @@
-using UniversalSceneDescription;
-
 namespace Engine;
 
 /// <summary>
-/// Plugin that bootstraps the OpenUSD (UniversalSceneDescription) runtime so the rest of the
-/// engine can author, load, and serialize <c>UsdStage</c>s through the Pixar bindings.
+/// Backend-agnostic scene plugin. Registers the in-engine scene model
+/// (<see cref="Scene"/>, <see cref="SceneNode"/>, <see cref="SceneAsset"/>) and a
+/// <see cref="SceneReaderRegistry"/> resource that concrete loaders
+/// (e.g. <c>UsdSceneLoader</c> in <c>3DEngine.Scenes.Usd</c>) plug into.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>What it does:</b>
+/// <b>Module split (matches the project pattern of e.g. <c>UI.WebView</c> + <c>UI.WebView.Vulkan</c>):</b>
+/// </para>
 /// <list type="bullet">
 ///   <item><description>
-///     Calls <see cref="UsdRuntime.Initialize"/> once during <see cref="IPlugin.Build"/>.
-///     This configures the native loader and registers the bundled Pixar plugin tree
-///     (<c>plugInfo.json</c> discovery, schema registration, file format plugins, etc.).
-///     The call is idempotent and thread-safe, so registering the plugin multiple times
-///     (or letting tests re-enter it) is safe.
+///     <c>3DEngine.Scenes</c> (this module) - format-agnostic scene model, asset wrapper,
+///     reader/writer interfaces, and registry. No native dependencies, headless-safe.
 ///   </description></item>
 ///   <item><description>
-///     Inserts a <see cref="UsdRuntimeHandle"/> marker resource into the <see cref="World"/> so
-///     other systems can declare a dependency (<c>.Read&lt;UsdRuntimeHandle&gt;()</c>) and be
-///     guaranteed the native runtime is live before they touch USD types.
+///     <c>3DEngine.Scenes.Usd</c> - opt-in OpenUSD backend (<c>UsdSceneLoader</c>,
+///     <c>UsdSceneReader</c>, <c>UsdSceneWriter</c>, <c>UsdScenesPlugin</c>) that initializes
+///     the native runtime and registers itself with both the <see cref="AssetServer"/> and
+///     the <see cref="SceneReaderRegistry"/>.
 ///   </description></item>
 /// </list>
-/// </para>
 /// <para>
-/// This plugin intentionally does <b>not</b> open or own any <c>UsdStage</c>. Stage lifetime
-/// is the responsibility of higher-level scene/asset systems (e.g. a future <c>UsdSceneLoader</c>
-/// registered with the <see cref="AssetServer"/>).
+/// Multiple backends can coexist: each registers for its own file extensions
+/// (<c>.usd/.usda/.usdc</c>, future <c>.gltf</c>, custom JSON, ...) and the registry
+/// dispatches by extension. <see cref="AssetServer"/> auto-creates <see cref="Assets{T}"/>
+/// on first load, so this plugin does not need to insert it explicitly.
 /// </para>
 /// </remarks>
-/// <example>
-/// Quick-start authoring a USD stage once the plugin is active:
-/// <code>
-/// using var stage = UsdStage.CreateNew("hello.usda");
-/// UsdGeomXform.Define(stage, new SdfPath("/Hello"));
-/// UsdGeomSphere.Define(stage, new SdfPath("/Hello/World"));
-/// stage.Save();
-/// </code>
-/// </example>
-/// <seealso cref="UsdRuntime"/>
-/// <seealso cref="DefaultPlugins"/>
+/// <seealso cref="Scene"/>
+/// <seealso cref="SceneAsset"/>
+/// <seealso cref="ISceneReader"/>
+/// <seealso cref="ISceneWriter"/>
 public sealed class ScenesPlugin : IPlugin
 {
     private static readonly ILogger Logger = Log.Category("Engine.Scenes");
@@ -48,34 +40,13 @@ public sealed class ScenesPlugin : IPlugin
     /// <inheritdoc />
     public void Build(App app)
     {
-        Logger.Info("ScenesPlugin: Initializing UniversalSceneDescription runtime...");
+        Logger.Info("ScenesPlugin: Registering scene model (backend-agnostic)...");
 
-        try
-        {
-            // Idempotent and thread-safe per UniversalSceneDescription contract.
-            UsdRuntime.Initialize();
-        }
-        catch (Exception ex)
-        {
-            Logger.Error($"ScenesPlugin: UsdRuntime.Initialize() failed: {ex.Message}");
-            throw;
-        }
+        // Backend-agnostic registry. Backends call Register(...) from their own plugin
+        // (e.g. UsdScenesPlugin) to opt-in their format support.
+        app.World.InsertResource(new SceneReaderRegistry());
 
-        // Marker resource so other systems can express "depends on USD runtime" via
-        // SystemDescriptor.Read<UsdRuntimeHandle>() and order/parallelize correctly.
-        app.World.InsertResource(new UsdRuntimeHandle());
-
-        Logger.Info("ScenesPlugin: USD runtime ready (Pixar plugin tree registered).");
+        Logger.Info("ScenesPlugin: Scene model ready. Add a backend plugin (e.g. UsdScenesPlugin) to enable file loading.");
     }
-}
-
-/// <summary>
-/// Marker resource indicating that the OpenUSD native runtime has been initialized
-/// by <see cref="ScenesPlugin"/>. Systems that touch USD types should declare a
-/// <c>Read&lt;UsdRuntimeHandle&gt;()</c> dependency on their <see cref="SystemDescriptor"/>
-/// to guarantee initialization order.
-/// </summary>
-public sealed class UsdRuntimeHandle
-{
 }
 
