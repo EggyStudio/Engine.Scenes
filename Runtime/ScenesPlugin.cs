@@ -4,7 +4,7 @@ namespace Engine;
 /// Backend-agnostic scene plugin. Registers the in-engine scene model
 /// (<see cref="Scene"/>, <see cref="SceneNode"/>, <see cref="SceneAsset"/>) and a
 /// <see cref="SceneReaderRegistry"/> resource that concrete loaders
-/// (e.g. <c>UsdSceneLoader</c> in <c>3DEngine.Scenes.Usd</c>) plug into.
+/// (e.g. <c>UsdSceneLoader</c> in <c>Engine.Scenes.Usd</c>) plug into.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -12,11 +12,11 @@ namespace Engine;
 /// </para>
 /// <list type="bullet">
 ///   <item><description>
-///     <c>3DEngine.Scenes</c> (this module) - format-agnostic scene model, asset wrapper,
+///     <c>Engine.Scenes</c> (this module) - format-agnostic scene model, asset wrapper,
 ///     reader/writer interfaces, and registry. No native dependencies, headless-safe.
 ///   </description></item>
 ///   <item><description>
-///     <c>3DEngine.Scenes.Usd</c> - opt-in OpenUSD backend (<c>UsdSceneLoader</c>,
+///     <c>Engine.Scenes.Usd</c> - opt-in OpenUSD backend (<c>UsdSceneLoader</c>,
 ///     <c>UsdSceneReader</c>, <c>UsdSceneWriter</c>, <c>UsdScenesPlugin</c>) that initializes
 ///     the native runtime and registers itself with both the <see cref="AssetServer"/> and
 ///     the <see cref="SceneReaderRegistry"/>.

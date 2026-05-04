@@ -14,7 +14,7 @@ namespace Engine;
 /// <b>Snapshot vs. live-stage:</b> for the runtime, <see cref="SceneAsset"/> is always a flattened,
 /// immutable snapshot - safe to publish to the main thread from a background loader. The editor
 /// may keep a parallel live <c>UsdStage</c> for non-destructive editing alongside the snapshot
-/// (owned by <c>3DEngine.Scenes.Usd</c>); the asset stays the source of truth for runtime systems.
+/// (owned by <c>Engine.Scenes.Usd</c>); the asset stays the source of truth for runtime systems.
 /// </para>
 /// </remarks>
 public sealed class SceneAsset

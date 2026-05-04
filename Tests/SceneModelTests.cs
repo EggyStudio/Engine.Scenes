@@ -4,7 +4,7 @@ using Xunit;
 namespace Engine.Tests.Scenes;
 
 /// <summary>
-/// Tests for the backend-agnostic scene model in <c>3DEngine.Scenes</c>:
+/// Tests for the backend-agnostic scene model in <c>Engine.Scenes</c>:
 /// <see cref="Scene"/>, <see cref="SceneNode"/>, <see cref="SceneAsset"/>, and the
 /// <see cref="SceneReaderRegistry"/> dispatch.
 /// </summary>

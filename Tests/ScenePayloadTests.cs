@@ -6,9 +6,9 @@ namespace Engine.Tests.Scenes;
 
 /// <summary>
 /// Pure-managed tests for the backend-agnostic payload types under
-/// <c>Modules/3DEngine.Scenes/Runtime/Payloads/</c>. These pin the payload contracts
+/// <c>Modules/Engine.Scenes/Runtime/Payloads/</c>. These pin the payload contracts
 /// (defaults, required fields, derived helpers) without pulling in any USD binding -
-/// the USD reader's tests live in <c>3DEngine.Scenes.Usd/Tests</c> and exercise the
+/// the USD reader's tests live in <c>Engine.Scenes.Usd/Tests</c> and exercise the
 /// reader-side behavior on top.
 /// </summary>
 [Trait("Category", "Unit")]

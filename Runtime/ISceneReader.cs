@@ -3,7 +3,7 @@ namespace Engine;
 /// <summary>
 /// Backend-agnostic reader interface that converts a stream / file of a particular format
 /// into an engine <see cref="Scene"/> snapshot. Implementations live in backend modules
-/// (e.g. <c>UsdSceneReader</c> in <c>3DEngine.Scenes.Usd</c>).
+/// (e.g. <c>UsdSceneReader</c> in <c>Engine.Scenes.Usd</c>).
 /// </summary>
 /// <remarks>
 /// <para>
