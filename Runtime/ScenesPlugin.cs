@@ -60,7 +60,14 @@ public sealed class ScenesPlugin : IPlugin
         // persist until Stage.Last so ordering is forgiving.
         app.AddSystem(Stage.PreUpdate, new SystemDescriptor(SceneHotReloadSystem.Run, "SceneHotReloadSystem"));
 
-        Logger.Info("ScenesPlugin: Scene model ready. Add a backend plugin (e.g. UsdScenesPlugin) to enable file loading.");
+        // Backend wiring: the format-agnostic scene model is useless without a concrete
+        // reader. Bring up the OpenUSD backend here so consumers only need to add
+        // ScenesPlugin (and AssetPlugin) to get .usd/.usda/.usdc loading - mirrors how
+        // MaterialPlugin pulls in MaterialXPlugin. UsdScenesPlugin.Build is idempotent
+        // and gracefully handles a missing AssetServer.
+        app.AddPlugin(new UsdScenesPlugin());
+
+        Logger.Info("ScenesPlugin: Scene model ready (OpenUSD backend wired in).");
     }
 }
 
