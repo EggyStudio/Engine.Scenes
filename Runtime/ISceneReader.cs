@@ -178,4 +178,3 @@ public sealed class SceneReaderRegistry
     public ISceneWriter? FindWriterByFormat(string formatId)
         => _writersByFormat.TryGetValue(formatId, out var w) ? w : null;
 }
-

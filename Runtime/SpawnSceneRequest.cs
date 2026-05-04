@@ -8,7 +8,16 @@ namespace Engine;
 /// </summary>
 /// <remarks>
 /// <para>
-/// This is the request side of the standard "load, then spawn" workflow:
+/// This is the request side of the standard "load, then spawn" workflow. The shortest
+/// way to author it from a behavior is the <see cref="SceneSpawnExtensions"/> helpers:
+/// <code>
+/// // one-call: load + queue a SpawnSceneRequest
+/// ctx.SpawnScene("scenes/teapot.usdz");
+///
+/// // with placement
+/// ctx.SpawnScene("scenes/teapot.usdz", SceneSpawn.At(new Vector3(0, 1, 0)));
+/// </code>
+/// The verbose form is still supported when callers need full control:
 /// <code>
 /// var handle = server.Load&lt;SceneAsset&gt;("scenes/teapot.usdz");
 /// ctx.Cmd.Spawn((id, ecs) =&gt; ecs.Add(id, new SpawnSceneRequest { Handle = handle }));
@@ -30,4 +39,3 @@ public struct SpawnSceneRequest
     /// </summary>
     public SceneSpawnSettings? Settings;
 }
-

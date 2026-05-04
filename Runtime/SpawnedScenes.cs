@@ -68,4 +68,3 @@ public sealed class SpawnedScenes
 /// <param name="Entities">Entity IDs spawned by <see cref="SceneSpawner.Spawn"/>, in depth-first order.</param>
 /// <param name="Settings">Settings used at spawn time; reused verbatim on hot-reload re-spawn.</param>
 public sealed record SpawnedSceneRecord(AssetId AssetId, int[] Entities, SceneSpawnSettings Settings);
-

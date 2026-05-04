@@ -31,4 +31,3 @@ public sealed class SceneAsset
     /// </summary>
     public string SourceFormat { get; init; } = "unknown";
 }
-

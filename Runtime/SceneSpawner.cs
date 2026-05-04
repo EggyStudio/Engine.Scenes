@@ -340,4 +340,3 @@ public sealed class SceneSpawnSettings
     /// <summary>Reusable default settings.</summary>
     public static SceneSpawnSettings Default { get; } = new();
 }
-

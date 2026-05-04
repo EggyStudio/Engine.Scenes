@@ -70,4 +70,3 @@ public sealed class ScenesPlugin : IPlugin
         Logger.Info("ScenesPlugin: Scene model ready (OpenUSD backend wired in).");
     }
 }
-

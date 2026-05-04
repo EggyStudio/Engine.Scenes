@@ -74,4 +74,3 @@ public enum SceneProjection
     /// <summary>Orthographic projection (the USD <c>orthographic</c> token).</summary>
     Orthographic,
 }
-

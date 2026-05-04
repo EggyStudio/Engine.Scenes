@@ -146,4 +146,3 @@ public enum SceneWrapMode
     /// <summary>Coordinates outside [0,1] sample a constant border color (typically transparent black).</summary>
     Black,
 }
-

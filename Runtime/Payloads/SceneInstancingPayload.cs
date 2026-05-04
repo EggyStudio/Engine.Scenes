@@ -54,4 +54,3 @@ public sealed class SceneInstancingPayload
     /// </summary>
     public int[]? InstanceIds { get; init; }
 }
-

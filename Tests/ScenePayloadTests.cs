@@ -253,4 +253,3 @@ public class ScenePayloadTests
         node.GetComponent<SceneMaterialPayload>().Should().BeNull();
     }
 }
-

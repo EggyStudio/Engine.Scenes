@@ -33,4 +33,3 @@ public struct SceneInstance
     /// </summary>
     public string SourcePath;
 }
-

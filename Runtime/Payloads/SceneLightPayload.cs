@@ -86,4 +86,3 @@ public enum SceneLightType
     /// <summary><c>UsdLuxDomeLight</c>: image-based environment light at infinity.</summary>
     Dome,
 }
-

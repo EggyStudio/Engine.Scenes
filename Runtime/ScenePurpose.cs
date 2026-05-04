@@ -119,4 +119,3 @@ public enum LoadPayloads
     /// <summary>All currently-defined payload kinds (default).</summary>
     All = Meshes | Materials | Cameras | Lights | Instancing,
 }
-

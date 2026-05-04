@@ -149,4 +149,3 @@ public readonly record struct SceneBounds(Vector3 Min, Vector3 Max)
         return new SceneBounds(min, max);
     }
 }
-

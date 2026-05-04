@@ -85,4 +85,3 @@ public enum SceneCoordinateSystem
     /// <summary>Right-handed, Z-up (common for USD, Blender, Unreal).</summary>
     ZUp,
 }
-

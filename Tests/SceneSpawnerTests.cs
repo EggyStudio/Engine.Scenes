@@ -379,4 +379,3 @@ public class SceneSpawnerTests
         Indices = new[] { 0, 1, 2 },
     };
 }
-
