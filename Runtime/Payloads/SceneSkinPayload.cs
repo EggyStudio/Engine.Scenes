@@ -39,4 +39,3 @@ public sealed class SceneSkinPayload
     /// </summary>
     public required float[] JointWeights { get; init; }
 }
-

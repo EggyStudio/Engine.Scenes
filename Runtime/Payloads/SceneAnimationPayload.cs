@@ -89,4 +89,3 @@ public enum SceneAnimationInterpolation
     /// </summary>
     CubicSpline,
 }
-

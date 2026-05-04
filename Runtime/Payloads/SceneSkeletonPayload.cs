@@ -55,4 +55,3 @@ public sealed class SceneSkeletonPayload
     /// </summary>
     public Transform[] LocalBindTransforms { get; init; } = Array.Empty<Transform>();
 }
-
