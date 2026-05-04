@@ -34,6 +34,9 @@ public static class SceneSpawnSystem
         if (!world.TryGetResource<EcsWorld>(out var ecs)) return;
         if (!world.TryGetResource<Assets<SceneAsset>>(out var assets)) return;
         var tracking = world.GetOrInsertResource(() => new SpawnedScenes());
+        // AssetServer is optional from the spawner's perspective (legacy / test path),
+        // but in the system path it's always present once AssetPlugin has been added.
+        world.TryGetResource<AssetServer>(out var assetServer);
 
         // Snapshot first: SceneSpawner.Spawn mutates the world (Spawn + Add), and
         // EcsWorld.Query yields live references; iterating a stale snapshot keeps the
@@ -53,7 +56,9 @@ public static class SceneSpawnSystem
             try
             {
                 var settings = request.Settings ?? SceneSpawnSettings.Default;
-                var entities = SceneSpawner.Spawn(ecs, asset.Scene, settings, request.Handle.Id.Value);
+                var entities = SceneSpawner.Spawn(
+                    ecs, asset.Scene, settings, request.Handle.Id.Value,
+                    assetServer, asset.SourcePath);
                 tracking.Track(request.Handle.Id, entities, settings);
                 Logger.Debug($"SceneSpawnSystem: spawned {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")} for '{asset.SourcePath}'.");
             }

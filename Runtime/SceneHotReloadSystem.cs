@@ -39,6 +39,7 @@ public static class SceneHotReloadSystem
         if (!world.TryGetResource<Assets<SceneAsset>>(out var assets)) return;
         if (!world.TryGetResource<Events<AssetEvent<SceneAsset>>>(out var events)) return;
         if (!world.TryGetResource<SpawnedScenes>(out var tracking)) return;
+        world.TryGetResource<AssetServer>(out var assetServer);
 
         // Read (don't drain) - other systems may also consume these events; AssetPlugin
         // clears them in Stage.Last.
@@ -66,7 +67,9 @@ public static class SceneHotReloadSystem
             // initial spawn (basis change, default albedo, marker policy, ...).
             try
             {
-                var fresh = SceneSpawner.Spawn(ecs, asset.Scene, record.Settings, evt.Id.Value);
+                var fresh = SceneSpawner.Spawn(
+                    ecs, asset.Scene, record.Settings, evt.Id.Value,
+                    assetServer, asset.SourcePath);
                 tracking.Track(evt.Id, fresh, record.Settings);
                 Logger.Info($"SceneHotReloadSystem: re-spawned '{asset.SourcePath}' ({record.Entities.Length} -> {fresh.Count} entities).");
             }

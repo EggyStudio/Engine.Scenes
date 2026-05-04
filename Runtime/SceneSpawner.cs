@@ -48,8 +48,26 @@ public static class SceneSpawner
     /// <param name="scene">Source snapshot. Not mutated.</param>
     /// <param name="settings">Spawn-time policy (purpose mask, defaults). May be <c>null</c>; <see cref="SceneSpawnSettings.Default"/> is used.</param>
     /// <param name="sceneAssetId">Optional source asset id, copied into <see cref="SceneInstance.SceneAssetId"/> on every spawned entity.</param>
+    /// <param name="assetServer">
+    /// When non-null, texture references on <see cref="SceneMaterialPayload"/> are
+    /// resolved against the asset server (using <see cref="TextureLoadExtensions"/>'
+    /// sRGB / linear / mips conventions) and the resulting handles populate the
+    /// <see cref="Material"/> texture slots. <c>null</c> (legacy / test path) skips
+    /// texture loads and fires the once-per-process "textures ignored" warning.
+    /// </param>
+    /// <param name="sceneSourcePath">
+    /// Resolved <see cref="SceneAsset.SourcePath"/> of the source file
+    /// (e.g. <c>"models/hero.glb"</c>). Used as the directory root for any relative
+    /// texture paths in the scene's material payloads. <c>null</c> = no prefix.
+    /// </param>
     /// <returns>The list of spawned entity IDs (depth-first order). Empty when nothing matched the filters.</returns>
-    public static List<int> Spawn(EcsWorld ecs, Scene scene, SceneSpawnSettings? settings = null, ulong sceneAssetId = 0)
+    public static List<int> Spawn(
+        EcsWorld ecs,
+        Scene scene,
+        SceneSpawnSettings? settings = null,
+        ulong sceneAssetId = 0,
+        AssetServer? assetServer = null,
+        string? sceneSourcePath = null)
     {
         ArgumentNullException.ThrowIfNull(ecs);
         ArgumentNullException.ThrowIfNull(scene);
@@ -57,12 +75,34 @@ public static class SceneSpawner
 
         var entities = new List<int>();
         var rootMatrix = ComputeRootMatrix(scene, settings);
+        var ctx = new SpawnContext(assetServer, sceneSourcePath);
 
         foreach (var node in scene.Roots)
-            SpawnRecursive(ecs, node, rootMatrix, settings, sceneAssetId, entities);
+            SpawnRecursive(ecs, node, rootMatrix, settings, sceneAssetId, entities, ctx);
 
         Logger.Debug($"SceneSpawner: spawned {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")} from scene '{scene.Name}'.");
         return entities;
+    }
+
+    private readonly struct SpawnContext
+    {
+        public AssetServer? Server { get; }
+        public string? SceneDirectory { get; }
+        public SpawnContext(AssetServer? server, string? sceneSourcePath)
+        {
+            Server = server;
+            SceneDirectory = ResolveSceneDirectory(sceneSourcePath);
+        }
+
+        private static string? ResolveSceneDirectory(string? sceneSourcePath)
+        {
+            if (string.IsNullOrEmpty(sceneSourcePath)) return null;
+            // SceneAsset.SourcePath is normalised to "/"; pull the directory portion
+            // (forward-slash). System.IO.Path's behaviour matches both separators.
+            var normalised = sceneSourcePath.Replace('\\', '/');
+            int slash = normalised.LastIndexOf('/');
+            return slash <= 0 ? string.Empty : normalised[..slash];
+        }
     }
 
     /// <summary>
@@ -98,7 +138,8 @@ public static class SceneSpawner
         Matrix4x4 parentWorld,
         SceneSpawnSettings settings,
         ulong sceneAssetId,
-        List<int> entities)
+        List<int> entities,
+        SpawnContext ctx)
     {
         var localMatrix = ComposeLocalMatrix(node.LocalTransform);
         var worldMatrix = localMatrix * parentWorld;
@@ -122,11 +163,11 @@ public static class SceneSpawner
                 });
             }
 
-            AttachComponents(ecs, entity, node, settings);
+            AttachComponents(ecs, entity, node, settings, ctx);
         }
 
         foreach (var child in node.Children)
-            SpawnRecursive(ecs, child, worldMatrix, settings, sceneAssetId, entities);
+            SpawnRecursive(ecs, child, worldMatrix, settings, sceneAssetId, entities, ctx);
     }
 
     private static bool HasSpawnablePayload(SceneNode node)
@@ -140,7 +181,7 @@ public static class SceneSpawner
         return false;
     }
 
-    private static void AttachComponents(EcsWorld ecs, int entity, SceneNode node, SceneSpawnSettings settings)
+    private static void AttachComponents(EcsWorld ecs, int entity, SceneNode node, SceneSpawnSettings settings, SpawnContext ctx)
     {
         SceneMeshPayload? mesh = null;
         SceneMaterialPayload? material = null;
@@ -168,19 +209,19 @@ public static class SceneSpawner
 
             // Material: explicit payload wins; otherwise apply the configured default
             // so the renderer sees a fully-formed (Mesh, Material) pair.
-            var albedo = material?.BaseColorFactor ?? settings.DefaultAlbedo;
-            ecs.Add(entity, new Material(albedo));
+            var runtimeMaterial = BuildRuntimeMaterial(material, settings, ctx);
+            ecs.Add(entity, runtimeMaterial);
 
             // Per-mesh diagnostic: vertex/tri count, source-space AABB and the final
             // world-space transform position the spawner produced. One pass over
             // the freshly-built positions array - reveals scale / off-screen /
             // degenerate-bounds issues immediately without a debugger.
-            LogMeshDiagnostics(node, entity, positions, albedo);
+            LogMeshDiagnostics(node, entity, positions, runtimeMaterial.Albedo);
 
-            // Texture refs ride along on the payload but the runtime Material is currently
-            // Albedo-only (PBR upgrade is a separate ticket). Warn once so the gap is
-            // visible without spamming every frame on a complex scene.
-            if (material is not null) WarnIfTexturesIgnoredOnce(material);
+            // When no AssetServer was supplied, texture refs lose information silently;
+            // surface that exactly once so the gap is visible without log spam.
+            if (material is not null && ctx.Server is null)
+                WarnIfTexturesIgnoredOnce(material);
         }
 
         if (camera is not null)
@@ -198,6 +239,69 @@ public static class SceneSpawner
                 TargetName = null,
             });
         }
+    }
+
+    /// <summary>
+    /// Builds a runtime <see cref="Material"/> from <paramref name="material"/>'s PBR
+    /// factors and resolves any <see cref="SceneTextureRef"/>s into
+    /// <see cref="Handle{T}"/>s via <paramref name="ctx"/>'s <see cref="AssetServer"/>.
+    /// </summary>
+    private static Material BuildRuntimeMaterial(SceneMaterialPayload? material, SceneSpawnSettings settings, SpawnContext ctx)
+    {
+        if (material is null)
+            return new Material(settings.DefaultAlbedo);
+
+        var runtime = new Material(material.BaseColorFactor)
+        {
+            MetallicFactor = material.MetallicFactor,
+            RoughnessFactor = material.RoughnessFactor,
+            EmissiveFactor = material.EmissiveFactor,
+            NormalScale = material.NormalScale,
+            OcclusionStrength = material.OcclusionStrength,
+        };
+
+        if (ctx.Server is null) return runtime;
+
+        // sRGB textures: BaseColor + Emissive (per glTF / USD convention).
+        // Linear textures: MetallicRoughness, Normal, Occlusion.
+        runtime.BaseColorTexture           = LoadTexture(ctx, material.BaseColorTexture, srgb: true);
+        runtime.EmissiveTexture            = LoadTexture(ctx, material.EmissiveTexture, srgb: true);
+        runtime.MetallicRoughnessTexture   = LoadTexture(ctx, material.MetallicRoughnessTexture, srgb: false);
+        runtime.NormalTexture              = LoadTexture(ctx, material.NormalTexture, srgb: false);
+        runtime.OcclusionTexture           = LoadTexture(ctx, material.OcclusionTexture, srgb: false);
+        return runtime;
+    }
+
+    private static Handle<Texture> LoadTexture(SpawnContext ctx, SceneTextureRef? texRef, bool srgb)
+    {
+        if (texRef is null || ctx.Server is null) return Handle<Texture>.Invalid;
+        var resolved = ResolveTexturePath(ctx.SceneDirectory, texRef.AssetPath);
+        if (string.IsNullOrEmpty(resolved)) return Handle<Texture>.Invalid;
+
+        return srgb
+            ? ctx.Server.LoadTextureSrgb(resolved, generateMips: true)
+            : ctx.Server.LoadTextureLinear(resolved, generateMips: true);
+    }
+
+    /// <summary>
+    /// Resolves a texture's <see cref="SceneTextureRef.AssetPath"/> against the directory
+    /// of the source scene file. Already-rooted paths (no dot-segments, contains a slash
+    /// at index 0, or starts with the scene directory) and synthetic in-memory paths
+    /// (matching <c>__embedded__</c>) are returned verbatim.
+    /// </summary>
+    public static string ResolveTexturePath(string? sceneDirectory, string texturePath)
+    {
+        if (string.IsNullOrEmpty(texturePath)) return string.Empty;
+
+        var t = texturePath.Replace('\\', '/');
+        // Already absolute-ish or in-memory synthetic path: leave untouched.
+        if (t.StartsWith('/') || t.Contains("__embedded__/", StringComparison.Ordinal))
+            return t.TrimStart('/');
+
+        if (string.IsNullOrEmpty(sceneDirectory)) return t;
+
+        var dir = sceneDirectory.Replace('\\', '/').TrimEnd('/');
+        return string.IsNullOrEmpty(dir) ? t : $"{dir}/{t}";
     }
 
     private static Matrix4x4 ComposeLocalMatrix(in Transform t)
