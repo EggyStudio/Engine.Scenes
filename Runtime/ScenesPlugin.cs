@@ -38,6 +38,16 @@ public sealed class ScenesPlugin : IPlugin
     private static readonly ILogger Logger = Log.Category("Engine.Scenes");
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Foundational for the model-import backends (<c>AssimpModelPlugin</c>,
+    /// <c>GltfModelPlugin</c>, <c>UsdScenesPlugin</c>) which register with the
+    /// <see cref="SceneReaderRegistry"/> this plugin creates. Built between
+    /// <see cref="PluginOrder.Foundation"/> (asset pipeline) and
+    /// <see cref="PluginOrder.Default"/>.
+    /// </remarks>
+    public int Order => PluginOrder.Foundation + 100;
+
+    /// <inheritdoc />
     public void Build(App app)
     {
         Logger.Info("ScenesPlugin: Registering scene model (backend-agnostic)...");
