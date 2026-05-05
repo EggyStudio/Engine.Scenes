@@ -186,6 +186,7 @@ public static class SceneSpawner
         SceneMeshPayload? mesh = null;
         SceneMaterialPayload? material = null;
         SceneCameraPayload? camera = null;
+        SceneLightPayload? light = null;
 
         foreach (var c in node.Components)
         {
@@ -194,7 +195,18 @@ public static class SceneSpawner
                 case SceneMeshPayload m: mesh ??= m; break;
                 case SceneMaterialPayload mat: material ??= mat; break;
                 case SceneCameraPayload cam: camera ??= cam; break;
+                case SceneLightPayload l: light ??= l; break;
             }
+        }
+
+        if (light is not null)
+        {
+            // Hand the payload off to ECS verbatim. The Engine.Lighting LightSpawnSystem
+            // (Stage.PreUpdate, after this system) translates it into a runtime Light
+            // (+ optional LightShadow / LightShaping) and removes the payload component.
+            // Keeping the translation out of Engine.Scenes preserves the layering: Scenes
+            // doesn't depend on Lighting; Lighting depends on Scenes for the payload type.
+            ecs.Add(entity, light);
         }
 
         if (mesh is not null)
