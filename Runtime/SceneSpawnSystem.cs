@@ -37,6 +37,11 @@ public static class SceneSpawnSystem
         // AssetServer is optional from the spawner's perspective (legacy / test path),
         // but in the system path it's always present once AssetPlugin has been added.
         world.TryGetResource<AssetServer>(out var assetServer);
+        // MaterialLibrary is added by MaterialPlugin (a transitive dependency of
+        // most scene-loading apps). Forwarded so the spawner can register every
+        // SceneMaterialPayload as a MaterialDescription and stash the resulting
+        // handle on Material.Handle for the renderer's per-material pipeline cache.
+        world.TryGetResource<MaterialLibrary>(out var materialLibrary);
 
         // Snapshot first: SceneSpawner.Spawn mutates the world (Spawn + Add), and
         // EcsWorld.Query yields live references; iterating a stale snapshot keeps the
@@ -58,7 +63,7 @@ public static class SceneSpawnSystem
                 var settings = request.Settings ?? SceneSpawnSettings.Default;
                 var entities = SceneSpawner.Spawn(
                     ecs, asset.Scene, settings, request.Handle.Id.Value,
-                    assetServer, asset.SourcePath);
+                    assetServer, asset.SourcePath, materialLibrary);
                 tracking.Track(request.Handle.Id, entities, settings);
                 Logger.Debug($"SceneSpawnSystem: spawned {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")} for '{asset.SourcePath}'.");
             }

@@ -60,6 +60,15 @@ public static class SceneSpawner
     /// (e.g. <c>"models/hero.glb"</c>). Used as the directory root for any relative
     /// texture paths in the scene's material payloads. <c>null</c> = no prefix.
     /// </param>
+    /// <param name="materialLibrary">
+    /// Optional <see cref="MaterialLibrary"/> used to register every spawned
+    /// <see cref="SceneMaterialPayload"/> as a <see cref="MaterialDescription"/>. The
+    /// returned <see cref="MaterialHandle"/> is stored on <see cref="Material.Handle"/>
+    /// so the renderer can key per-material pipelines (MaterialX-generated GLSL,
+    /// descriptor sets, uniform buffers) by it. <c>null</c> leaves the handle as
+    /// <see cref="MaterialHandle"/> default; the renderer then falls back to the
+    /// shared static-white pipeline.
+    /// </param>
     /// <returns>The list of spawned entity IDs (depth-first order). Empty when nothing matched the filters.</returns>
     public static List<int> Spawn(
         EcsWorld ecs,
@@ -67,7 +76,8 @@ public static class SceneSpawner
         SceneSpawnSettings? settings = null,
         ulong sceneAssetId = 0,
         AssetServer? assetServer = null,
-        string? sceneSourcePath = null)
+        string? sceneSourcePath = null,
+        MaterialLibrary? materialLibrary = null)
     {
         ArgumentNullException.ThrowIfNull(ecs);
         ArgumentNullException.ThrowIfNull(scene);
@@ -75,7 +85,7 @@ public static class SceneSpawner
 
         var entities = new List<int>();
         var rootMatrix = ComputeRootMatrix(scene, settings);
-        var ctx = new SpawnContext(assetServer, sceneSourcePath);
+        var ctx = new SpawnContext(assetServer, sceneSourcePath, materialLibrary);
 
         foreach (var node in scene.Roots)
             SpawnRecursive(ecs, node, rootMatrix, settings, sceneAssetId, entities, ctx);
@@ -88,10 +98,12 @@ public static class SceneSpawner
     {
         public AssetServer? Server { get; }
         public string? SceneDirectory { get; }
-        public SpawnContext(AssetServer? server, string? sceneSourcePath)
+        public MaterialLibrary? Materials { get; }
+        public SpawnContext(AssetServer? server, string? sceneSourcePath, MaterialLibrary? materials)
         {
             Server = server;
             SceneDirectory = ResolveSceneDirectory(sceneSourcePath);
+            Materials = materials;
         }
 
         private static string? ResolveSceneDirectory(string? sceneSourcePath)
@@ -272,6 +284,13 @@ public static class SceneSpawner
             OcclusionStrength = material.OcclusionStrength,
         };
 
+        // Register the payload with the central MaterialLibrary so the renderer
+        // can key per-material GPU resources (MaterialX-generated pipelines,
+        // descriptor sets, uniform buffers) by a stable handle. Falls back to a
+        // default handle when no library was supplied (test / legacy paths).
+        if (ctx.Materials is not null)
+            runtime.Handle = ctx.Materials.CreateOrGet(ToDescription(material));
+
         if (ctx.Server is null) return runtime;
 
         // sRGB textures: BaseColor + Emissive (per glTF / USD convention).
@@ -283,6 +302,37 @@ public static class SceneSpawner
         runtime.OcclusionTexture           = LoadTexture(ctx, material.OcclusionTexture, srgb: false);
         return runtime;
     }
+
+    /// <summary>
+    /// Projects a <see cref="SceneMaterialPayload"/> onto the engine-neutral
+    /// <see cref="MaterialDescription"/> shape consumed by <see cref="MaterialLibrary"/>.
+    /// Texture references and the alpha-mode enum are translated 1:1; texture wrap
+    /// modes share an enum order with <see cref="TextureWrapMode"/>.
+    /// </summary>
+    internal static MaterialDescription ToDescription(SceneMaterialPayload p) => new()
+    {
+        Name = p.Name,
+        SourcePath = p.SourcePath,
+        BaseColorFactor = p.BaseColorFactor,
+        BaseColorTexture = ToMaterialTextureRef(p.BaseColorTexture),
+        MetallicFactor = p.MetallicFactor,
+        RoughnessFactor = p.RoughnessFactor,
+        MetallicRoughnessTexture = ToMaterialTextureRef(p.MetallicRoughnessTexture),
+        NormalTexture = ToMaterialTextureRef(p.NormalTexture),
+        NormalScale = p.NormalScale,
+        EmissiveFactor = p.EmissiveFactor,
+        EmissiveTexture = ToMaterialTextureRef(p.EmissiveTexture),
+        OcclusionTexture = ToMaterialTextureRef(p.OcclusionTexture),
+        OcclusionStrength = p.OcclusionStrength,
+        AlphaMode = (MaterialAlphaMode)(byte)p.AlphaMode,
+        AlphaCutoff = p.AlphaCutoff,
+        DoubleSided = p.DoubleSided,
+        MaterialXSource = p.MaterialXSource,
+    };
+
+    private static MaterialTextureRef? ToMaterialTextureRef(SceneTextureRef? r) => r is null
+        ? null
+        : new MaterialTextureRef(r.AssetPath, r.UvSet, (TextureWrapMode)(byte)r.WrapS, (TextureWrapMode)(byte)r.WrapT);
 
     private static Handle<Texture> LoadTexture(SpawnContext ctx, SceneTextureRef? texRef, bool srgb)
     {

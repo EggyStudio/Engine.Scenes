@@ -94,6 +94,16 @@ public sealed class SceneMaterialPayload
     /// Mirrors <c>UsdGeomGprim.doubleSided</c>.
     /// </summary>
     public bool DoubleSided { get; init; }
+
+    /// <summary>
+    /// Optional MaterialX XML payload that authored this material. Carried through
+    /// the scene → spawner → <see cref="MaterialDescription"/> pipeline so the
+    /// renderer's per-material pipeline cache can run
+    /// <see cref="MaterialXShaderGenerator"/> on it without re-fetching the source
+    /// asset. <c>null</c> for materials authored from USD <c>UsdPreviewSurface</c>,
+    /// glTF, Assimp, or anything else without a MaterialX network.
+    /// </summary>
+    public string? MaterialXSource { get; init; }
 }
 
 /// <summary>Reference to a texture file that backs a <see cref="SceneMaterialPayload"/> input.</summary>
